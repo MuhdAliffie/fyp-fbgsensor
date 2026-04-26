@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Main Dashboard - Unified SHM View</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+        :root {
+            --bg: #f4f7f3;
+            --ink: #1f2e2a;
+            --muted: #596a65;
+            --card: #ffffff;
+            --line: #d5dfd8;
+            --accent: #2d5f95;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 5% 0%, #e9f0e9 0%, transparent 45%),
+                radial-gradient(circle at 95% 0%, #f2e8dc 0%, transparent 42%),
+                var(--bg);
+            font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: clamp(1.2rem, 2.6vw, 1.9rem);
+            letter-spacing: 0.02em;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--card);
+        }
+
+        .controls label { font-weight: 600; }
+
+        select {
+            min-width: 180px;
+            padding: 6px 8px;
+            border: 1px solid #bcc8c1;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        code {
+            background: #eef4f0;
+            border: 1px solid #d4e0d9;
+            border-radius: 6px;
+            padding: 3px 8px;
+        }
+
+        .section {
+            margin-bottom: 14px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--card);
+            overflow: hidden;
+        }
+
+        .section-head {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            background: linear-gradient(90deg, #f6faf7 0%, #f8f8fb 100%);
+        }
+
+        .section-head h2 {
+            margin: 0;
+            font-size: 1.03rem;
+            color: var(--accent);
+        }
+
+        .section-head p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+        .grid-long {
+            grid-template-columns: 1fr;
+        }
+
+        .plot-long {
+            height: 34vh;
+            min-height: 240px;
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px;
+            background: #fff;
+        }
+
+        .panel h3 {
+            margin: 0 0 8px;
+            font-size: 0.98rem;
+        }
+
+        .panel-summary {
+            margin: -2px 0 8px;
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.35;
+            white-space: pre-line;
+        }
+
+        .range-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px 0;
+        }
+
+        .range-controls label {
+            font-weight: 600;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .range-controls input {
+            width: 110px;
+            padding: 5px 7px;
+            border: 1px solid #bcc8c1;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        .panel-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 0.89rem;
+        }
+
+        .plot {
+            width: 100%;
+            height: 41vh;
+            min-height: 260px;
+        }
+
+        @media (max-width: 1200px) {
+            .grid-3 { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 900px) {
+            .grid-3, .grid-2, .grid-long { grid-template-columns: 1fr; }
+            .plot { height: 45vh; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Main Dashboard (Unified)</h1>
+
+    <div class="controls">
+        <label for="folderSelect">Folder:</label>
+        <select id="folderSelect"></select>
+
+        <label for="fileSelect">CSV file:</label>
+        <select id="fileSelect"></select>
+
+        <code id="datasetLabel"></code>
+    </div>
+
+    <section class="section">
+        <div class="section-head">
+            <h2>view_data_dashboard.html</h2>
+            <p>CH1, CH2, and overlap CH1/CH2</p>
+        </div>
+        <div class="grid grid-long">
+            <div class="panel">
+                <h3>CH1</h3>
+                <div id="plotCh1" class="plot plot-long"></div>
+            </div>
+            <div class="panel">
+                <h3>CH2</h3>
+                <div id="plotCh2" class="plot plot-long"></div>
+            </div>
+            <div class="panel">
+                <h3>Overlap CH1 and CH2</h3>
+                <div id="plotOverlapRaw" class="plot plot-long"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-head">
+            <h2>before_after.html</h2>
+            <p>Before Fourier Transform and After Fourier Transform</p>
+        </div>
+        <div class="grid grid-2">
+            <div class="panel">
+                <h3>Before Fourier Transform</h3>
+                <div id="plotBeforeFft" class="plot"></div>
+            </div>
+            <div class="panel">
+                <h3>After Fourier Transform</h3>
+                <div id="plotAfterFft" class="plot"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-head">
+            <h2>view-filter-results.html</h2>
+            <p>Oscilloscope Results, FFT Results, Overlap (Filtered CH1 vs Raw CH2), and Filtered FFT</p>
+        </div>
+        <div class="grid grid-2">
+            <div class="panel">
+                <h3>Oscilloscope Results</h3>
+                <div id="plotFilterOsc" class="plot"></div>
+            </div>
+            <div class="panel">
+                <h3>FFT Results</h3>
+                <div id="plotFilterRawFft" class="plot"></div>
+            </div>
+            <div class="panel">
+                <h3 id="overlapTitle">Overlap: Filtered CH1 vs Raw CH2</h3>
+                <label class="panel-toggle" for="toggleOverlapCh1Filtered">
+                    <input id="toggleOverlapCh1Filtered" type="checkbox" checked />
+                    Show CH1 Filtered
+                </label>
+                <label class="panel-toggle" for="toggleOverlapCh2Raw">
+                    <input id="toggleOverlapCh2Raw" type="checkbox" checked />
+                    Show CH2 Raw
+                </label>
+                <div id="plotFilterOverlap" class="plot"></div>
+            </div>
+            <div class="panel">
+                <h3>Filtered FFT</h3>
+                <label class="panel-toggle" for="toggleCh2RawFft">
+                    <input id="toggleCh2RawFft" type="checkbox" />
+                    Show CH2 Raw FFT
+                </label>
+                <div id="plotFilterFft" class="plot"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-head">
+            <h2>full fft</h2>
+            <p>Full-spectrum FFT for true resonance detection, with peak within 10 Hz and the highest resonance peak</p>
+        </div>
+        <div class="range-controls">
+            <label for="fullFftStartHz">Start frequency (Hz):</label>
+            <input id="fullFftStartHz" type="number" step="0.1" min="0" value="0" />
+            <label for="fullFftEndHz">End frequency (Hz):</label>
+            <input id="fullFftEndHz" type="number" step="0.1" min="0" value="10" />
+            <label for="fullFftPeakRank">Peak rank:</label>
+            <input id="fullFftPeakRank" type="number" step="1" min="1" value="1" />
+        </div>
+        <div class="grid grid-2">
+            <div class="panel">
+                <h3 id="fullRawTitle">Full FFT: Raw CH1 vs Raw CH2</h3>
+                <p class="panel-summary" id="fullRawSummary"></p>
+                <label class="panel-toggle" for="toggleFullRawCh1">
+                    <input id="toggleFullRawCh1" type="checkbox" checked />
+                    Show CH1 Raw
+                </label>
+                <label class="panel-toggle" for="toggleFullRawCh2">
+                    <input id="toggleFullRawCh2" type="checkbox" checked />
+                    Show CH2 Raw
+                </label>
+                <div id="plotFullRawFft" class="plot"></div>
+            </div>
+            <div class="panel">
+                <h3 id="fullFilteredTitle">Full FFT: Filtered CH1 vs Raw CH2</h3>
+                <p class="panel-summary" id="fullFilteredSummary"></p>
+                <label class="panel-toggle" for="toggleFullFilteredCh1">
+                    <input id="toggleFullFilteredCh1" type="checkbox" checked />
+                    Show CH1 Filtered
+                </label>
+                <label class="panel-toggle" for="toggleFullFilteredCh2">
+                    <input id="toggleFullFilteredCh2" type="checkbox" checked />
+                    Show CH2 Raw
+                </label>
+                <div id="plotFullFilteredFft" class="plot"></div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const FOLDER_FILES = {
+            "30-20": ["30_2HZ000.csv", "30_3HZ000.csv", "30_4HZ000.csv", "30_5HZ   000.csv"],
+            "40-20": ["40_2HZ000.csv", "40_3HZ000.csv", "40_4HZ000.csv", "40_5HZ000.csv"],
+            "50-20": ["1.7HZ_50-20 000.csv", "2HZ_50-20 000.csv", "3HZ_50-20 000.csv", "4HZ_50-20 000.csv", "5HZ_50-20 000.csv"],
+            "60-20": ["60_2HZ   000.csv", "60_3HZ   000.csv", "60_4HZ   000.csv", "60_5HZ   000.csv"],
+            "70-20": ["70_2HZ   000.csv", "70_3HZ   000.csv", "70_41HZ   000.csv", "70_4HZ   000.csv", "70_5HZ   000.csv"]
+        };
+
+        const folderSelect = document.getElementById("folderSelect");
+        const fileSelect = document.getElementById("fileSelect");
+        const datasetLabel = document.getElementById("datasetLabel");
+        const toggleOverlapCh1Filtered = document.getElementById("toggleOverlapCh1Filtered");
+        const toggleOverlapCh2Raw = document.getElementById("toggleOverlapCh2Raw");
+        const toggleCh2RawFft = document.getElementById("toggleCh2RawFft");
+        const overlapTitle = document.getElementById("overlapTitle");
+        const toggleFullRawCh1 = document.getElementById("toggleFullRawCh1");
+        const toggleFullRawCh2 = document.getElementById("toggleFullRawCh2");
+        const toggleFullFilteredCh1 = document.getElementById("toggleFullFilteredCh1");
+        const toggleFullFilteredCh2 = document.getElementById("toggleFullFilteredCh2");
+        const fullRawTitle = document.getElementById("fullRawTitle");
+        const fullRawSummary = document.getElementById("fullRawSummary");
+        const fullFilteredTitle = document.getElementById("fullFilteredTitle");
+        const fullFilteredSummary = document.getElementById("fullFilteredSummary");
+        const fullFftStartHz = document.getElementById("fullFftStartHz");
+        const fullFftEndHz = document.getElementById("fullFftEndHz");
+        const fullFftPeakRank = document.getElementById("fullFftPeakRank");
+
+        let currentData = null;
+
+        function stemFromFileName(fileName) {
+            return fileName.replace(/\.csv$/i, "");
+        }
+
+        function parseCsvLine(line) {
+            const out = [];
+            let cur = "";
+            let inQuote = false;
+            for (let i = 0; i < line.length; i += 1) {
+                const ch = line[i];
+                if (ch === '"') {
+                    inQuote = !inQuote;
+                } else if (ch === "," && !inQuote) {
+                    out.push(cur);
+                    cur = "";
+                } else {
+                    cur += ch;
+                }
+            }
+            out.push(cur);
+            return out.map((v) => v.trim());
+        }
+
+        function toNum(v) {
+            if (v === undefined || v === null) return Number.NaN;
+            const clean = String(v).replace(/^"|"$/g, "").trim();
+            if (clean === "") return Number.NaN;
+            return Number(clean);
+        }
+
+        function formatHz(value) {
+            if (!Number.isFinite(value)) return "n/a";
+            return `${value.toFixed(value < 10 ? 3 : 2)} Hz`;
+        }
+
+        function formatAmp(value) {
+            if (!Number.isFinite(value)) return "n/a";
+            return value.toFixed(4);
+        }
+
+        function getChannelLabel(showCh1, showCh2, ch1Label, ch2Label) {
+            if (showCh1 && showCh2) return `${ch1Label} vs ${ch2Label}`;
+            if (showCh1) return ch1Label;
+            if (showCh2) return ch2Label;
+            return `${ch1Label} vs ${ch2Label}`;
+        }
+
+        function getFullFftAxisRange(fullFreq) {
+            const maxDetected = fullFreq.length ? Math.max(...fullFreq) : 10;
+            const maxSafe = Number.isFinite(maxDetected) && maxDetected > 0 ? maxDetected : 10;
+
+            let start = Number(fullFftStartHz.value);
+            let end = Number(fullFftEndHz.value);
+
+            if (!Number.isFinite(start)) start = 0;
+            if (!Number.isFinite(end)) end = Math.min(10, maxSafe);
+
+            start = Math.max(0, Math.min(start, maxSafe));
+            end = Math.max(0, Math.min(end, maxSafe));
+
+            if (start >= end) {
+                const fallbackEnd = Math.min(maxSafe, start + Math.max(maxSafe * 0.05, 0.5));
+                if (fallbackEnd > start) {
+                    end = fallbackEnd;
+                } else {
+                    start = 0;
+                    end = maxSafe;
+                }
+            }
+
+            fullFftStartHz.value = start.toFixed(2);
+            fullFftEndHz.value = end.toFixed(2);
+            return [start, end];
+        }
+
+        function parseRawCsv(text) {
+            const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+            let sampleRate = Number.NaN;
+            let hResolution = Number.NaN;
+            const ch1 = [];
+            const ch2 = [];
+            let idx = 0;
+
+            for (idx = 0; idx < lines.length; idx += 1) {
+                const row = parseCsvLine(lines[idx]);
+                const first = (row[0] || "").replace(/^"|"$/g, "").trim();
+                if (first === "SampleRate") sampleRate = toNum(row[1]);
+                if (first === "HResolution") hResolution = toNum(row[1]);
+                if (first === "") break;
+            }
+
+            for (; idx < lines.length; idx += 1) {
+                const row = parseCsvLine(lines[idx]);
+                if (!row.length || row[0] !== "") continue;
+                const c1 = toNum(row[1]);
+                const c2 = toNum(row[2]);
+                if (!Number.isFinite(c1) || !Number.isFinite(c2)) continue;
+                ch1.push(c1);
+                ch2.push(c2);
+            }
+
+            if (!Number.isFinite(sampleRate) && Number.isFinite(hResolution) && hResolution > 0) {
+                sampleRate = 1 / hResolution;
+            }
+            if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
+                throw new Error("Sample rate not found in raw CSV.");
+            }
+
+            const time = ch1.map((_, i) => i / sampleRate);
+            return { time, ch1, ch2 };
+        }
+
+        function parseFftCsv(text) {
+            const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+            if (lines.length < 2) throw new Error("FFT CSV has no data rows.");
+
+            const header = parseCsvLine(lines[0]);
+            const hasCh2 = header.includes("amplitude_ch2");
+            const freq = [];
+            const ch1 = [];
+            const ch2 = [];
+
+            for (let i = 1; i < lines.length; i += 1) {
+                const row = parseCsvLine(lines[i]);
+                const f = toNum(row[0]);
+                const a1 = toNum(row[1]);
+                const a2 = toNum(row[2]);
+                if (!Number.isFinite(f) || !Number.isFinite(a1)) continue;
+                freq.push(f);
+                ch1.push(a1);
+                ch2.push(Number.isFinite(a2) ? a2 : Number.NaN);
+            }
+
+            return { freq, ch1, ch2: hasCh2 ? ch2 : null };
+        }
+
+        function parseFullFftCsv(text) {
+            const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+            const meta = {};
+            const freq = [];
+            const ch1Raw = [];
+            const ch2Raw = [];
+            const ch1Filtered = [];
+            let dataStart = -1;
+
+            for (let i = 0; i < lines.length; i += 1) {
+                const row = parseCsvLine(lines[i]);
+                const first = (row[0] || "").replace(/^"|"$/g, "").trim();
+                if (first === "frequency_hz") {
+                    dataStart = i + 1;
+                    break;
+                }
+                if (first && row.length > 1) {
+                    meta[first] = toNum(row[1]);
+                }
+            }
+
+            if (dataStart < 0) throw new Error("Full FFT CSV is missing its data header.");
+
+            for (let i = dataStart; i < lines.length; i += 1) {
+                const row = parseCsvLine(lines[i]);
+                const f = toNum(row[0]);
+                const a1 = toNum(row[1]);
+                const a2 = toNum(row[2]);
+                const af = toNum(row[3]);
+                if (!Number.isFinite(f) || !Number.isFinite(a1) || !Number.isFinite(a2) || !Number.isFinite(af)) continue;
+                freq.push(f);
+                ch1Raw.push(a1);
+                ch2Raw.push(a2);
+                ch1Filtered.push(af);
+            }
+
+            return { meta, freq, ch1Raw, ch2Raw, ch1Filtered };
+        }
+
+        function ordinal(n) {
+            const v = n % 100;
+            if (v >= 11 && v <= 13) return `${n}th`;
+            if (n % 10 === 1) return `${n}st`;
+            if (n % 10 === 2) return `${n}nd`;
+            if (n % 10 === 3) return `${n}rd`;
+            return `${n}th`;
+        }
+
+        function getPeakRank() {
+            let rank = Number(fullFftPeakRank.value);
+            if (!Number.isFinite(rank)) rank = 1;
+            rank = Math.max(1, Math.floor(rank));
+            fullFftPeakRank.value = String(rank);
+            return rank;
+        }
+
+        function nthHighestPeak(freqs, amps, rank, maxFreq = null, startFromFirstRise = false) {
+            const points = [];
+            for (let i = 0; i < freqs.length; i += 1) {
+                const f = freqs[i];
+                const a = amps[i];
+                if (!Number.isFinite(f) || !Number.isFinite(a) || f <= 0) continue;
+                if (maxFreq !== null && f > maxFreq) continue;
+                points.push({ f, a });
+            }
+
+            if (!points.length) return { freq: Number.NaN, amp: Number.NaN };
+
+            let searchPoints = points;
+            if (startFromFirstRise && points.length > 1) {
+                let riseStart = 0;
+                for (let i = 1; i < points.length; i += 1) {
+                    if (points[i].a > points[i - 1].a) {
+                        riseStart = i;
+                        break;
+                    }
+                }
+                searchPoints = points.slice(riseStart);
+            }
+
+            if (!searchPoints.length) return { freq: Number.NaN, amp: Number.NaN };
+
+            const sorted = [...searchPoints].sort((left, right) => right.a - left.a);
+            const idx = Math.min(rank - 1, sorted.length - 1);
+            return { freq: sorted[idx].f, amp: sorted[idx].a };
+        }
+
+        function fullSummaryLines(freqs, amps, rank, startFromFirstRise = false) {
+            const peakFull = nthHighestPeak(freqs, amps, rank, null, startFromFirstRise);
+            const peak10 = nthHighestPeak(freqs, amps, rank, 10, startFromFirstRise);
+            const rankLabel = ordinal(rank);
+            return {
+                full: `${rankLabel} highest peak (full): ${formatHz(peakFull.freq)} (${formatAmp(peakFull.amp)})`,
+                within10: `${rankLabel} highest peak within 10 Hz: ${formatHz(peak10.freq)} (${formatAmp(peak10.amp)})`
+            };
+        }
+
+        function buildChannelSummary(label, freqs, amps, rank, startFromFirstRise = false) {
+            const lines = fullSummaryLines(freqs, amps, rank, startFromFirstRise);
+            return `${label} - ${lines.full}\n${label} - ${lines.within10}`;
+        }
+
+        function parseFilterCsv(text) {
+            const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+            if (lines.length < 3) throw new Error("Filter CSV has insufficient rows.");
+
+            const time = [];
+            const ch1Raw = [];
+            const ch2Raw = [];
+            const ch1Filtered = [];
+            const freq = [];
+            const fftCh1Raw = [];
+            const fftCh2Raw = [];
+            const fftFiltered = [];
+
+            for (let i = 2; i < lines.length; i += 1) {
+                const row = parseCsvLine(lines[i]);
+                const t = toNum(row[0]);
+                const c1 = toNum(row[1]);
+                const c2 = toNum(row[2]);
+                const c1f = toNum(row[3]);
+                const f = toNum(row[4]);
+                const f1 = toNum(row[5]);
+                const f2 = toNum(row[6]);
+                const ff = toNum(row[7]);
+
+                if (Number.isFinite(t) && Number.isFinite(c1) && Number.isFinite(c2)) {
+                    time.push(t);
+                    ch1Raw.push(c1);
+                    ch2Raw.push(c2);
+                    ch1Filtered.push(Number.isFinite(c1f) ? c1f : Number.NaN);
+                }
+
+                if (Number.isFinite(f) && Number.isFinite(f1)) {
+                    freq.push(f);
+                    fftCh1Raw.push(f1);
+                    fftCh2Raw.push(Number.isFinite(f2) ? f2 : Number.NaN);
+                    fftFiltered.push(Number.isFinite(ff) ? ff : Number.NaN);
+                }
+            }
+
+            return { time, ch1Raw, ch2Raw, ch1Filtered, freq, fftCh1Raw, fftCh2Raw, fftFiltered };
+        }
+
+        async function loadText(path) {
+            try {
+                const res = await fetch(path);
+                if (res.ok) return await res.text();
+            } catch (_) {
+                // Fallback below.
+            }
+
+            const plainPath = decodeURIComponent(path);
+            try {
+                const res2 = await fetch(plainPath);
+                if (res2.ok) return await res2.text();
+                throw new Error(`Failed to load ${path} (${res2.status})`);
+            } catch (err) {
+                if (window.location.protocol === "file:") {
+                    throw new Error("Browser blocks local fetch on file://. Start server: python3 -m http.server 8000 then open http://localhost:8000/main-dashboard.html");
+                }
+                throw err;
+            }
+        }
+
+        function getOverlapTitle() {
+            const showCh1 = toggleOverlapCh1Filtered.checked;
+            const showCh2 = toggleOverlapCh2Raw.checked;
+            if (showCh1 && showCh2) return "Overlap: Filtered CH1 vs Raw CH2";
+            if (showCh1) return "Filtered CH1";
+            if (showCh2) return "Raw CH2";
+            return "Overlap: Filtered CH1 vs Raw CH2";
+        }
+
+        function buildPaths(folder, fileName) {
+            const encoded = encodeURIComponent(fileName);
+            const stem = stemFromFileName(fileName);
+            return {
+                rawPath: `./Vibration_results/${folder}/${encoded}`,
+                fftPath: `./fft_results/${folder}/${encodeURIComponent(stem + ".csv")}`,
+                filterPath: `./filter-results/${folder}/${encodeURIComponent(stem + ".csv")}`,
+                fullFftPath: `./full-fft-results-for-resonance/${folder}/${encodeURIComponent(stem + ".csv")}`
+            };
+        }
+
+        function renderAll(raw, fft, filt, full, fileName) {
+            const baseLayout = {
+                hovermode: "x unified",
+                legend: { orientation: "h" },
+                margin: { l: 58, r: 18, t: 42, b: 55 }
+            };
+
+            Plotly.react("plotCh1", [
+                { x: raw.time, y: raw.ch1, mode: "lines", name: "CH1", line: { width: 1.4, color: "#c25b3f" } }
+            ], {
+                ...baseLayout,
+                title: `CH1 - ${fileName}`,
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Voltage (V)" }
+            }, { responsive: true });
+
+            Plotly.react("plotCh2", [
+                { x: raw.time, y: raw.ch2, mode: "lines", name: "CH2", line: { width: 1.4, color: "#1e6f5c" } }
+            ], {
+                ...baseLayout,
+                title: `CH2 - ${fileName}`,
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Voltage (V)" }
+            }, { responsive: true });
+
+            Plotly.react("plotOverlapRaw", [
+                { x: raw.time, y: raw.ch1, mode: "lines", name: "CH1", line: { width: 1.3, color: "#c25b3f" } },
+                { x: raw.time, y: raw.ch2, mode: "lines", name: "CH2", line: { width: 1.3, color: "#1e6f5c" } }
+            ], {
+                ...baseLayout,
+                title: "Overlap CH1 and CH2",
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Voltage (V)" }
+            }, { responsive: true });
+
+            Plotly.react("plotBeforeFft", [
+                { x: raw.time, y: raw.ch1, mode: "lines", name: "CH1", line: { width: 1.3, color: "#c25b3f" } },
+                { x: raw.time, y: raw.ch2, mode: "lines", name: "CH2", line: { width: 1.3, color: "#1e6f5c" } }
+            ], {
+                ...baseLayout,
+                title: "Before Fourier Transform",
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Voltage (V)" }
+            }, { responsive: true });
+
+            const afterTraces = [
+                { x: fft.freq, y: fft.ch1, mode: "lines", name: "Amplitude CH1", line: { width: 1.4, color: "#2a5f9e" } }
+            ];
+            if (fft.ch2) {
+                afterTraces.push({ x: fft.freq, y: fft.ch2, mode: "lines", name: "Amplitude CH2", line: { width: 1.2, color: "#1e6f5c" } });
+            }
+
+            Plotly.react("plotAfterFft", afterTraces, {
+                ...baseLayout,
+                title: "After Fourier Transform",
+                xaxis: { title: "Frequency (Hz)", range: [0, 10] },
+                yaxis: { title: "Amplitude" }
+            }, { responsive: true });
+
+            Plotly.react("plotFilterOsc", [
+                { x: filt.time, y: filt.ch1Raw, mode: "lines", name: "CH1 Raw", line: { width: 1.2, color: "#c25b3f" } },
+                { x: filt.time, y: filt.ch2Raw, mode: "lines", name: "CH2 Raw", line: { width: 1.2, color: "#1e6f5c" } }
+            ], {
+                ...baseLayout,
+                title: "Oscilloscope Results",
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Voltage (V)" }
+            }, { responsive: true });
+
+            Plotly.react("plotFilterRawFft", [
+                { x: filt.freq, y: filt.fftCh1Raw, mode: "lines", name: "FFT CH1 Raw", line: { width: 1.3, color: "#2a5f9e" } },
+                { x: filt.freq, y: filt.fftCh2Raw, mode: "lines", name: "FFT CH2 Raw", line: { width: 1.2, color: "#1e6f5c" } }
+            ], {
+                ...baseLayout,
+                title: "FFT Results",
+                xaxis: { title: "Frequency (Hz)", range: [0, 10] },
+                yaxis: { title: "Amplitude" }
+            }, { responsive: true });
+
+            const overlapTraces = [
+                ...(toggleOverlapCh1Filtered.checked ? [{ x: filt.time, y: filt.ch1Filtered, mode: "lines", name: "CH1 Filtered", line: { width: 1.4, color: "#e76f51" } }] : []),
+                ...(toggleOverlapCh2Raw.checked ? [{ x: filt.time, y: filt.ch2Raw, mode: "lines", name: "CH2 Raw", line: { width: 1.1, color: "#1e6f5c" } }] : [])
+            ];
+
+            const overlapChartTitle = getOverlapTitle();
+            overlapTitle.textContent = overlapChartTitle;
+            Plotly.react("plotFilterOverlap", overlapTraces, {
+                ...baseLayout,
+                title: overlapChartTitle,
+                xaxis: { title: "Time (s)" },
+                yaxis: { title: "Voltage (V)" }
+            }, { responsive: true });
+
+            Plotly.react("plotFilterFft", [
+                { x: filt.freq, y: filt.fftCh1Raw, mode: "lines", name: "FFT CH1 Raw", line: { width: 1.1, color: "#8dbcb2" } },
+                { x: filt.freq, y: filt.fftFiltered, mode: "lines", name: "FFT Filtered", line: { width: 1.5, color: "#e76f51" } },
+                ...(toggleCh2RawFft.checked ? [{ x: filt.freq, y: filt.fftCh2Raw, mode: "lines", name: "FFT CH2 Raw", line: { width: 1.1, color: "#1e6f5c" } }] : [])
+            ], {
+                ...baseLayout,
+                title: "Filtered FFT",
+                xaxis: { title: "Frequency (Hz)", range: [0, 10] },
+                yaxis: { title: "Amplitude" }
+            }, { responsive: true });
+
+            if (full) {
+                const rawShowCh1 = toggleFullRawCh1.checked;
+                const rawShowCh2 = toggleFullRawCh2.checked;
+                const filteredShowCh1 = toggleFullFilteredCh1.checked;
+                const filteredShowCh2 = toggleFullFilteredCh2.checked;
+                const fullFftRange = getFullFftAxisRange(full.freq);
+                const peakRank = getPeakRank();
+
+                const rawTraces = [
+                    ...(rawShowCh1 ? [{ x: full.freq, y: full.ch1Raw, mode: "lines", name: "CH1 Raw", line: { width: 1.2, color: "#2A5F9E" } }] : []),
+                    ...(rawShowCh2 ? [{ x: full.freq, y: full.ch2Raw, mode: "lines", name: "CH2 Raw", line: { width: 1.2, color: "#1E6F5C" } }] : [])
+                ];
+                const filteredTraces = [
+                    ...(filteredShowCh1 ? [{ x: full.freq, y: full.ch1Filtered, mode: "lines", name: "CH1 Filtered", line: { width: 1.2, color: "#E76F51" } }] : []),
+                    ...(filteredShowCh2 ? [{ x: full.freq, y: full.ch2Raw, mode: "lines", name: "CH2 Raw", line: { width: 1.2, color: "#1E6F5C" } }] : [])
+                ];
+
+                const rawLabel = getChannelLabel(rawShowCh1, rawShowCh2, "CH1 Raw", "CH2 Raw");
+                const filteredLabel = getChannelLabel(filteredShowCh1, filteredShowCh2, "CH1 Filtered", "CH2 Raw");
+                fullRawTitle.textContent = `Full FFT: ${rawLabel}`;
+                fullFilteredTitle.textContent = `Full FFT: ${filteredLabel}`;
+                fullRawSummary.textContent = [
+                    buildChannelSummary("CH1 Raw", full.freq, full.ch1Raw, peakRank, true),
+                    buildChannelSummary("CH2 Raw", full.freq, full.ch2Raw, peakRank, false)
+                ].join("\n");
+                fullFilteredSummary.textContent = [
+                    buildChannelSummary("CH1 Filtered", full.freq, full.ch1Filtered, peakRank, true),
+                    buildChannelSummary("CH2 Raw", full.freq, full.ch2Raw, peakRank, false)
+                ].join("\n");
+
+                Plotly.react("plotFullRawFft", rawTraces, {
+                    ...baseLayout,
+                    title: `Full FFT - ${rawLabel}`,
+                    xaxis: { title: "Frequency (Hz)", range: fullFftRange },
+                    yaxis: { title: "Amplitude" }
+                }, { responsive: true });
+
+                Plotly.react("plotFullFilteredFft", filteredTraces, {
+                    ...baseLayout,
+                    title: `Full FFT - ${filteredLabel}`,
+                    xaxis: { title: "Frequency (Hz)", range: fullFftRange },
+                    yaxis: { title: "Amplitude" }
+                }, { responsive: true });
+            } else {
+                fullRawTitle.textContent = "Full FFT: unavailable";
+                fullFilteredTitle.textContent = "Full FFT: unavailable";
+                fullRawSummary.textContent = "The full FFT CSV could not be loaded for this selection.";
+                fullFilteredSummary.textContent = "The full FFT CSV could not be loaded for this selection.";
+                ["plotFullRawFft", "plotFullFilteredFft"].forEach((id) => Plotly.purge(id));
+            }
+        }
+
+        async function renderSelection() {
+            const folder = folderSelect.value;
+            const fileName = fileSelect.value;
+            datasetLabel.textContent = `${folder} / ${fileName}`;
+
+            const { rawPath, fftPath, filterPath, fullFftPath } = buildPaths(folder, fileName);
+
+            try {
+                const [rawText, fftText, filterText] = await Promise.all([
+                    loadText(rawPath),
+                    loadText(fftPath),
+                    loadText(filterPath)
+                ]);
+
+                let fullText = null;
+                try {
+                    fullText = await loadText(fullFftPath);
+                } catch (err) {
+                    fullText = null;
+                }
+
+                const raw = parseRawCsv(rawText);
+                const fft = parseFftCsv(fftText);
+                const filt = parseFilterCsv(filterText);
+                const full = fullText ? parseFullFftCsv(fullText) : null;
+                currentData = { raw, fft, filt, full, fileName };
+                renderAll(raw, fft, filt, full, fileName);
+            } catch (err) {
+                currentData = null;
+                datasetLabel.textContent = `Error: ${err.message}`;
+                [
+                    "plotCh1", "plotCh2", "plotOverlapRaw", "plotBeforeFft", "plotAfterFft",
+                    "plotFilterOsc", "plotFilterRawFft", "plotFilterOverlap", "plotFilterFft",
+                    "plotFullRawFft", "plotFullFilteredFft"
+                ].forEach((id) => Plotly.purge(id));
+            }
+        }
+
+        function populateFolders() {
+            const folders = Object.keys(FOLDER_FILES).sort();
+            folderSelect.innerHTML = folders.map((f) => `<option value="${f}">${f}</option>`).join("");
+        }
+
+        function populateFiles() {
+            const folder = folderSelect.value;
+            const files = FOLDER_FILES[folder] || [];
+            fileSelect.innerHTML = files.map((f) => `<option value="${f}">${f}</option>`).join("");
+        }
+
+        function rerenderCurrent() {
+            if (!currentData) return;
+            renderAll(currentData.raw, currentData.fft, currentData.filt, currentData.full, currentData.fileName);
+        }
+
+        folderSelect.addEventListener("change", async () => {
+            populateFiles();
+            await renderSelection();
+        });
+
+        fileSelect.addEventListener("change", async () => {
+            await renderSelection();
+        });
+
+        toggleOverlapCh1Filtered.addEventListener("change", rerenderCurrent);
+        toggleOverlapCh2Raw.addEventListener("change", rerenderCurrent);
+        toggleCh2RawFft.addEventListener("change", rerenderCurrent);
+        toggleFullRawCh1.addEventListener("change", rerenderCurrent);
+        toggleFullRawCh2.addEventListener("change", rerenderCurrent);
+        toggleFullFilteredCh1.addEventListener("change", rerenderCurrent);
+        toggleFullFilteredCh2.addEventListener("change", rerenderCurrent);
+        fullFftStartHz.addEventListener("change", rerenderCurrent);
+        fullFftEndHz.addEventListener("change", rerenderCurrent);
+        fullFftPeakRank.addEventListener("change", rerenderCurrent);
+
+        (async function init() {
+            populateFolders();
+            populateFiles();
+            await renderSelection();
+        }());
+    </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+the aim is to find the true resonance frequency
+from fft_script.py, the fft is saved only up to 10 Hz
+to find the true resonance frequency, an fft should be done extensively
+
+write a new python script "full-fft-script.py" that perform full fft on the full signal
+"full-fft-results-for-resonance/*-20/*.csv"
+"full-fft-results-for-resonance/*-20/plots/*.png"
+
+in main-dashboard.html, add a new section at the end "full fft" which includes
+
+---
+full fft graph without filter CH1 (output) and raw CH2 (input) overlap
+put a condition on the lable of the graph on which of the channel is being displayed or both
+
+peak within 10 Hz
+resonance frequency (true highest peak)
+---
+full fft graph of filtered CH1 (output) and raw CH2 (input) overlap
+put a condition on the lable of the graph on which of the channel is being displayed or both
+
+peak within 10 Hz
+resonance frequency (true highest peak)
+---
+
+"full-fft-results-for-resonance"
