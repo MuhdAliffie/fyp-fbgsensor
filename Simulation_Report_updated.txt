@@ -1,0 +1,44 @@
+
+=========================================================
+         UPDATED DIGITAL TWIN SIMULATION SUMMARY REPORT
+=========================================================
+
+1. INPUT PARAMETERS
+   Structural sway frequency        : 3.0 Hz
+   Nominal sway amplitude           : 2.5 g
+   Gaussian noise standard deviation: 1.2 g
+   Sampling frequency               : 1000.0 Hz
+   Simulation duration              : 5.0 s
+   Butterworth filter               : 4th order, 10.0 Hz cutoff
+   Peak filtered input acceleration : 2.7329 g
+   System calibration factor        : 0.067308 V/pm
+
+---------------------------------------------------------
+
+2. SENSOR PERFORMANCE: 40 mm CANTILEVER BEAM
+   Updated flat-band sensitivity    : 0.3695 pm/g
+   Maximum optical wavelength shift : 1.0098 pm
+   Maximum output voltage           : 0.0680 V (68.0 mV)
+
+---------------------------------------------------------
+
+3. SENSOR PERFORMANCE: 60 mm CANTILEVER BEAM
+   Updated flat-band sensitivity    : 0.2706 pm/g
+   Maximum optical wavelength shift : 0.7395 pm
+   Maximum output voltage           : 0.0498 V (49.8 mV)
+
+---------------------------------------------------------
+
+4. INTERPRETATION
+   Using the updated calibrated wavelength-shift sensitivities, the
+   40 mm cantilever beam produces the larger simulated optical and
+   electrical output. The 60 mm beam still remains useful as a smoother
+   and more predictable response option, but its updated flat-band
+   sensitivity is lower than that of the 40 mm beam.
+
+   Therefore, the updated digital twin supports the selection of the
+   40 mm beam when the priority is the strongest usable calibrated
+   output, while the 60 mm beam remains a suitable alternative when
+   smoother response behaviour is prioritised.
+
+=========================================================

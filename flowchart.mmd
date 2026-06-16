@@ -1,0 +1,38 @@
+
+%%{init: {'theme': 'default'}}%%
+graph TD
+    A[Raw Oscilloscope CSV Data] --> B[Parse Data & Extract Sample Rate]
+    
+    B --> C[Extract CH1: FBG Output]
+    B --> D[Extract CH2: Input Shaker Signal]
+    
+    %% Presentation 1
+    C -.-> P1[Data Presentation 1:\nRaw Input & Output Signals\nTime Domain]
+    D -.-> P1
+    
+    %% FFT on Raw Data
+    C --> E[Compute FFT on Raw CH1]
+    D --> F[Compute FFT on Raw CH2]
+    
+    %% Presentation 2
+    E -.-> P2[Data Presentation 2:\nFFT of Both Raw Signals\nFrequency Domain]
+    F -.-> P2
+    
+    %% Filtering Process
+    C --> G[Apply 4th-Order Butterworth Low-Pass Filter\nCutoff: 10 Hz, Zero-Phase filtfilt]
+    G --> H[Cleaned CH1 Output Signal]
+    
+    %% Presentation 4
+    H -.-> P4[Data Presentation 4:\nCleaned Output Signal\nTime Domain]
+    D -.-> P4
+    
+    %% FFT on Cleaned Data
+    H --> I[Compute FFT on Cleaned CH1]
+    
+    %% Presentation 3
+    I -.-> P3[Data Presentation 3:\nCleaned FFT of Both Signals\nFrequency Domain]
+    F -.-> P3
+    
+    %% Final Analysis
+    I --> J[Peak Detection Algorithm\nTarget: within 10Hz window & Full Spectrum Resonance]
+    J --> K[Export Consolidated Results\nCSV & HTML Dashboard Plots]

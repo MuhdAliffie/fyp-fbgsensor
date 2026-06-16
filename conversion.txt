@@ -1,0 +1,546 @@
+I am working on my FBG vibration sensor thesis. My supervisor asked me to replot all experimental figures so that the y-axis is wavelength shift, Δλ (pm), not photodetector voltage (V).
+
+Please modify/create my Python code according to my actual file organisation and the workflow below.
+
+IMPORTANT CONTEXT:
+My oscilloscope CSV files are Yokogawa DLM2000-style CSV files. They do not have simple column names like Time, CH1, CH2. The file header contains metadata such as:
+
+"Header Size", 15
+"TraceName", "CH1", "CH2"
+"SampleRate", 62500.0, 62500.0
+"HResolution", 1.600000E-05, 1.600000E-05
+"HOffset", -9.999840E-01, -9.999840E-01
+
+After a blank line, the actual data starts. The data rows look like this:
+
+, 1410E-03, -0.85E+00,
+
+This means:
+- Column 1 is empty
+- Column 2 is CH1 photodetector voltage
+- Column 3 is CH2 reference signal
+- Column 4 is empty
+
+So please read CH1 from data column index 1 and CH2 from data column index 2 after the header/blank line.
+
+PROJECT FOLDER:
+Only read CSV files from this folder:
+
+Vibration_results
+
+Do not read from fft_results, filter-results, full-fft-results-for-resonance, or Performance-Results.
+
+FILE ORGANISATION:
+The CSV files are arranged like this:
+
+Vibration_results/30-20/30_2HZ000.csv
+Vibration_results/30-20/30_3HZ000.csv
+Vibration_results/30-20/30_4HZ000.csv
+Vibration_results/30-20/30_5HZ   000.csv
+
+Vibration_results/40-20/40_2HZ000.csv
+Vibration_results/40-20/40_3HZ000.csv
+Vibration_results/40-20/40_4HZ000.csv
+Vibration_results/40-20/40_5HZ000.csv
+
+Vibration_results/50-20/2HZ_50-20 000.csv
+Vibration_results/50-20/3HZ_50-20 000.csv
+Vibration_results/50-20/4HZ_50-20 000.csv
+Vibration_results/50-20/5HZ_50-20 000.csv
+
+Vibration_results/60-20/60_2HZ   000.csv
+Vibration_results/60-20/60_3HZ   000.csv
+Vibration_results/60-20/60_4HZ   000.csv
+Vibration_results/60-20/60_5HZ   000.csv
+
+Vibration_results/70-20/70_2HZ   000.csv
+Vibration_results/70-20/70_3HZ   000.csv
+Vibration_results/70-20/70_4HZ   000.csv
+Vibration_results/70-20/70_5HZ   000.csv
+
+Ignore:
+- .DS_Store files
+- existing plots folders
+- 70_41HZ files
+- any 1.7 Hz files
+- any frequency other than 2 Hz, 3 Hz, 4 Hz, and 5 Hz
+
+WORKFLOW REQUIRED:
+For each CSV file:
+
+1. Read CH1 and CH2 from the Yokogawa CSV.
+2. Use CH1 as the photodetector voltage signal.
+3. Use CH2 only as reference input.
+4. Generate the time vector using HResolution from the CSV header.
+5. Remove the DC offset from CH1:
+
+   ΔV(t) = V(t) - mean(V)
+
+6. Convert voltage fluctuation to wavelength shift:
+
+   Δλ(t) = ΔV(t) / Ccal
+
+   where:
+
+   Ccal = 0.067308 V/pm
+
+7. Apply a 4th-order Butterworth low-pass filter to the wavelength-shift signal:
+
+   cutoff frequency = 10 Hz
+
+8. Use the filtered wavelength-shift signal for thesis time-domain plots.
+
+9. Calculate FFT using the filtered wavelength-shift signal, not raw voltage.
+
+10. Plot time-domain figure:
+    x-axis: Time (s)
+    y-axis: Wavelength Shift, Δλ (pm)
+
+11. Plot FFT figure:
+    x-axis: Frequency (Hz)
+    y-axis: FFT Amplitude of Wavelength Shift (pm)
+
+12. Keep CH2 only as a reference. Do not plot CH1 wavelength shift and CH2 voltage on the same y-axis unless CH2 is normalised or placed on a separate axis.
+
+13. Save all new plots into:
+
+    wavelength_shift_plots
+
+14. Keep the original CSV files unchanged.
+
+15. Also save a summary CSV containing:
+    - beam length
+    - excitation frequency
+    - file path
+    - sampling frequency
+    - peak-to-peak wavelength shift
+    - RMS wavelength shift
+    - dominant FFT peak frequency
+    - dominant FFT amplitude
+
+Please use or adapt the Python code below.
+
+from pathlib import Path
+import csv
+import re
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.signal import butter, filtfilt
+from scipy.fft import rfft, rfftfreq
+
+# ============================================================
+# User settings
+# ============================================================
+
+INPUT_ROOT = Path("Vibration_results")
+OUTPUT_ROOT = Path("wavelength_shift_plots")
+
+CCAL = 0.067308  # V/pm
+FILTER_ORDER = 4
+FILTER_CUTOFF_HZ = 10.0
+
+VALID_FREQUENCIES = {2, 3, 4, 5}
+
+# ============================================================
+# Helper functions
+# ============================================================
+
+def parse_float(value):
+    """Safely convert metadata string to float."""
+    try:
+        return float(str(value).strip().strip('"'))
+    except Exception:
+        return None
+
+
+def infer_beam_length_from_folder(csv_path):
+    """
+    Example:
+    Vibration_results/30-20/30_2HZ000.csv -> 30 mm
+    Vibration_results/50-20/2HZ_50-20 000.csv -> 50 mm
+    """
+    folder_name = csv_path.parent.name
+    match = re.search(r"(\d+)", folder_name)
+    if not match:
+        raise ValueError(f"Cannot infer beam length from folder: {folder_name}")
+    return int(match.group(1))
+
+
+def infer_frequency_from_filename(csv_path):
+    """
+    Examples:
+    30_2HZ000.csv -> 2 Hz
+    60_5HZ   000.csv -> 5 Hz
+    2HZ_50-20 000.csv -> 2 Hz
+    70_41HZ   000.csv -> 41 Hz, which will be ignored later
+    """
+    name = csv_path.name.upper().replace(" ", "")
+    match = re.search(r"(\d+(?:\.\d+)?)HZ", name)
+    if not match:
+        raise ValueError(f"Cannot infer frequency from filename: {csv_path.name}")
+
+    freq = float(match.group(1))
+
+    if freq.is_integer():
+        freq = int(freq)
+
+    return freq
+
+
+def read_yokogawa_csv(csv_path):
+    """
+    Reads Yokogawa DLM-style CSV.
+
+    Header example:
+    "TraceName", "CH1", "CH2"
+    "SampleRate", 62500.0, 62500.0
+    "HResolution", 1.600000E-05, 1.600000E-05
+    "HOffset", -9.999840E-01, -9.999840E-01
+
+    Data example:
+    , 1410E-03, -0.85E+00,
+
+    This function returns:
+    time, CH1, CH2, sampling_frequency, metadata
+    """
+
+    with open(csv_path, "r", errors="replace") as f:
+        lines = f.readlines()
+
+    metadata = {}
+    data_start_index = None
+
+    for i, line in enumerate(lines):
+        # Data starts after the first blank line
+        if line.strip() == "":
+            data_start_index = i + 1
+            break
+
+        try:
+            parts = next(csv.reader([line]))
+            if len(parts) >= 2:
+                key = parts[0].strip().strip('"')
+                values = [p.strip().strip('"') for p in parts[1:]]
+                metadata[key] = values
+        except Exception:
+            pass
+
+    if data_start_index is None:
+        raise ValueError(f"No blank line found before data in {csv_path}")
+
+    # Read only CH1 and CH2 data columns.
+    # Column 0 = empty, column 1 = CH1, column 2 = CH2, column 3 = empty.
+    df = pd.read_csv(
+        csv_path,
+        skiprows=data_start_index,
+        header=None,
+        usecols=[1, 2],
+        names=["CH1", "CH2"],
+        engine="python"
+    )
+
+    df["CH1"] = pd.to_numeric(df["CH1"], errors="coerce")
+    df["CH2"] = pd.to_numeric(df["CH2"], errors="coerce")
+    df = df.dropna(subset=["CH1", "CH2"]).reset_index(drop=True)
+
+    # Prefer HResolution if available.
+    h_resolution = None
+    if "HResolution" in metadata and len(metadata["HResolution"]) > 0:
+        h_resolution = parse_float(metadata["HResolution"][0])
+
+    if h_resolution is None:
+        if "SampleRate" in metadata and len(metadata["SampleRate"]) > 0:
+            sample_rate = parse_float(metadata["SampleRate"][0])
+            if sample_rate:
+                h_resolution = 1.0 / sample_rate
+
+    if h_resolution is None:
+        raise ValueError(f"Cannot determine sampling interval from {csv_path}")
+
+    fs = 1.0 / h_resolution
+
+    # Use relative time starting from 0 s for cleaner thesis plots.
+    time = np.arange(len(df)) * h_resolution
+
+    ch1 = df["CH1"].to_numpy()
+    ch2 = df["CH2"].to_numpy()
+
+    return time, ch1, ch2, fs, metadata
+
+
+def butter_lowpass_filter(signal, fs, cutoff_hz=10.0, order=4):
+    """Apply zero-phase Butterworth low-pass filter."""
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff_hz / nyquist
+
+    if normal_cutoff >= 1:
+        return signal
+
+    b, a = butter(order, normal_cutoff, btype="low", analog=False)
+    filtered_signal = filtfilt(b, a, signal)
+    return filtered_signal
+
+
+def compute_fft(signal, fs):
+    """
+    Compute single-sided FFT amplitude spectrum.
+    Uses a Hann window to reduce leakage.
+    """
+    signal = np.asarray(signal)
+    signal = signal - np.mean(signal)
+
+    n = len(signal)
+    window = np.hanning(n)
+    windowed_signal = signal * window
+
+    freqs = rfftfreq(n, d=1.0 / fs)
+
+    # Amplitude correction using sum(window)
+    amplitude = (2.0 / np.sum(window)) * np.abs(rfft(windowed_signal))
+
+    return freqs, amplitude
+
+
+def find_dominant_peak(freqs, amplitude, max_freq=20.0):
+    """Find dominant FFT peak below max_freq, ignoring DC."""
+    mask = (freqs > 0.1) & (freqs <= max_freq)
+
+    if not np.any(mask):
+        return np.nan, np.nan
+
+    idx_local = np.argmax(amplitude[mask])
+    selected_freqs = freqs[mask]
+    selected_amp = amplitude[mask]
+
+    return selected_freqs[idx_local], selected_amp[idx_local]
+
+
+def decimate_for_plot(time, signal, max_points=12000):
+    """Reduce number of plotted points for readable figures."""
+    n = len(time)
+    step = max(1, n // max_points)
+    return time[::step], signal[::step]
+
+
+def save_time_plot(time, wavelength_shift_filtered, output_path, beam_mm, freq_hz):
+    """Save time-domain wavelength-shift plot."""
+    t_plot, y_plot = decimate_for_plot(time, wavelength_shift_filtered)
+
+    plt.figure(figsize=(7.5, 4.5))
+    plt.plot(t_plot, y_plot, linewidth=1.0)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Wavelength Shift, Δλ (pm)")
+    plt.title(f"{beam_mm} mm Beam at {freq_hz} Hz: Filtered Wavelength-Shift Response")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def save_fft_plot(freqs, amplitude, output_path, beam_mm, freq_hz):
+    """Save FFT wavelength-shift plot."""
+    plt.figure(figsize=(7.5, 4.5))
+    plt.plot(freqs, amplitude, linewidth=1.0)
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("FFT Amplitude of Wavelength Shift (pm)")
+    plt.title(f"{beam_mm} mm Beam at {freq_hz} Hz: FFT of Filtered Wavelength Shift")
+    plt.xlim(0, 20)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def save_dashboard_plot(
+    time,
+    wavelength_shift_raw,
+    wavelength_shift_filtered,
+    freqs_raw,
+    fft_raw,
+    freqs_filtered,
+    fft_filtered,
+    output_path,
+    beam_mm,
+    freq_hz
+):
+    """
+    Save a 4-panel dashboard:
+    1. Raw converted wavelength shift
+    2. FFT of raw wavelength shift
+    3. Filtered wavelength shift
+    4. FFT of filtered wavelength shift
+
+    All y-axes use pm, not voltage.
+    """
+
+    t_raw, y_raw = decimate_for_plot(time, wavelength_shift_raw)
+    t_filt, y_filt = decimate_for_plot(time, wavelength_shift_filtered)
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 7.5))
+
+    axes[0, 0].plot(t_raw, y_raw, linewidth=0.8)
+    axes[0, 0].set_title("Raw Converted Wavelength Shift")
+    axes[0, 0].set_xlabel("Time (s)")
+    axes[0, 0].set_ylabel("Δλ (pm)")
+    axes[0, 0].grid(True, alpha=0.3)
+
+    axes[0, 1].plot(freqs_raw, fft_raw, linewidth=0.8)
+    axes[0, 1].set_title("FFT of Raw Wavelength Shift")
+    axes[0, 1].set_xlabel("Frequency (Hz)")
+    axes[0, 1].set_ylabel("FFT Amplitude (pm)")
+    axes[0, 1].set_xlim(0, 20)
+    axes[0, 1].grid(True, alpha=0.3)
+
+    axes[1, 0].plot(t_filt, y_filt, linewidth=0.8)
+    axes[1, 0].set_title("Filtered Wavelength Shift")
+    axes[1, 0].set_xlabel("Time (s)")
+    axes[1, 0].set_ylabel("Δλ (pm)")
+    axes[1, 0].grid(True, alpha=0.3)
+
+    axes[1, 1].plot(freqs_filtered, fft_filtered, linewidth=0.8)
+    axes[1, 1].set_title("FFT of Filtered Wavelength Shift")
+    axes[1, 1].set_xlabel("Frequency (Hz)")
+    axes[1, 1].set_ylabel("FFT Amplitude (pm)")
+    axes[1, 1].set_xlim(0, 20)
+    axes[1, 1].grid(True, alpha=0.3)
+
+    fig.suptitle(f"{beam_mm} mm Beam at {freq_hz} Hz", fontsize=14)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+# ============================================================
+# Main processing
+# ============================================================
+
+def main():
+    if not INPUT_ROOT.exists():
+        raise FileNotFoundError(f"Input folder not found: {INPUT_ROOT}")
+
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+
+    csv_files = sorted(INPUT_ROOT.glob("*/*.csv"))
+
+    summary_rows = []
+
+    for csv_path in csv_files:
+        if ".DS_Store" in csv_path.name:
+            continue
+
+        try:
+            beam_mm = infer_beam_length_from_folder(csv_path)
+            freq_hz = infer_frequency_from_filename(csv_path)
+        except ValueError as e:
+            print(f"Skipping {csv_path}: {e}")
+            continue
+
+        if freq_hz not in VALID_FREQUENCIES:
+            print(f"Skipping {csv_path}: frequency {freq_hz} Hz is not required")
+            continue
+
+        print(f"Processing: {csv_path}")
+
+        try:
+            time, ch1_voltage, ch2_reference, fs, metadata = read_yokogawa_csv(csv_path)
+        except Exception as e:
+            print(f"Failed to read {csv_path}: {e}")
+            continue
+
+        # --------------------------------------------------------
+        # Workflow:
+        # Raw voltage -> remove DC offset -> convert to pm -> filter
+        # --------------------------------------------------------
+
+        delta_voltage = ch1_voltage - np.mean(ch1_voltage)
+
+        wavelength_shift_raw = delta_voltage / CCAL
+
+        wavelength_shift_filtered = butter_lowpass_filter(
+            wavelength_shift_raw,
+            fs=fs,
+            cutoff_hz=FILTER_CUTOFF_HZ,
+            order=FILTER_ORDER
+        )
+
+        # FFT from wavelength shift, not voltage
+        freqs_raw, fft_raw = compute_fft(wavelength_shift_raw, fs)
+        freqs_filtered, fft_filtered = compute_fft(wavelength_shift_filtered, fs)
+
+        dominant_freq, dominant_amp = find_dominant_peak(
+            freqs_filtered,
+            fft_filtered,
+            max_freq=20.0
+        )
+
+        # Output folder per beam length
+        beam_output_dir = OUTPUT_ROOT / f"{beam_mm}-20"
+        beam_output_dir.mkdir(parents=True, exist_ok=True)
+
+        base_name = f"{beam_mm}mm_{freq_hz}Hz"
+
+        time_plot_path = beam_output_dir / f"{base_name}_time_wavelength_shift.png"
+        fft_plot_path = beam_output_dir / f"{base_name}_fft_wavelength_shift.png"
+        dashboard_plot_path = beam_output_dir / f"{base_name}_dashboard_wavelength_shift.png"
+
+        save_time_plot(
+            time,
+            wavelength_shift_filtered,
+            time_plot_path,
+            beam_mm,
+            freq_hz
+        )
+
+        save_fft_plot(
+            freqs_filtered,
+            fft_filtered,
+            fft_plot_path,
+            beam_mm,
+            freq_hz
+        )
+
+        save_dashboard_plot(
+            time,
+            wavelength_shift_raw,
+            wavelength_shift_filtered,
+            freqs_raw,
+            fft_raw,
+            freqs_filtered,
+            fft_filtered,
+            dashboard_plot_path,
+            beam_mm,
+            freq_hz
+        )
+
+        peak_to_peak_pm = np.max(wavelength_shift_filtered) - np.min(wavelength_shift_filtered)
+        rms_pm = np.sqrt(np.mean(wavelength_shift_filtered ** 2))
+
+        summary_rows.append({
+            "beam_length_mm": beam_mm,
+            "excitation_frequency_Hz": freq_hz,
+            "csv_path": str(csv_path),
+            "sampling_frequency_Hz": fs,
+            "Ccal_V_per_pm": CCAL,
+            "filter_order": FILTER_ORDER,
+            "filter_cutoff_Hz": FILTER_CUTOFF_HZ,
+            "peak_to_peak_wavelength_shift_pm": peak_to_peak_pm,
+            "rms_wavelength_shift_pm": rms_pm,
+            "dominant_fft_peak_Hz": dominant_freq,
+            "dominant_fft_amplitude_pm": dominant_amp,
+            "time_plot": str(time_plot_path),
+            "fft_plot": str(fft_plot_path),
+            "dashboard_plot": str(dashboard_plot_path)
+        })
+
+    summary_df = pd.DataFrame(summary_rows)
+    summary_path = OUTPUT_ROOT / "wavelength_shift_summary.csv"
+    summary_df.to_csv(summary_path, index=False)
+
+    print("\nDone.")
+    print(f"Saved plots to: {OUTPUT_ROOT}")
+    print(f"Saved summary to: {summary_path}")
+
+
+if __name__ == "__main__":
+    main()

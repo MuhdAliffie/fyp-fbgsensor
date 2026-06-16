@@ -1,0 +1,43 @@
+
+--- Sensor Evaluation Results: 30-20 ---
+File                 | Test Freq (Hz)  | Resonance (Hz)  | Sensitivity    
+----------------------------------------------------------------------
+30_2HZ000.csv        | 2.00            | 2.50            | 0.1480         
+30_3HZ000.csv        | 3.00            | 4.50            | 0.0538         
+30_4HZ000.csv        | 4.00            | 2.00            | 0.0786         
+30_5HZ000.csv        | 5.00            | 6.00            | 0.0755         
+
+--- Sensor Evaluation Results: 40-20 ---
+File                 | Test Freq (Hz)  | Resonance (Hz)  | Sensitivity    
+----------------------------------------------------------------------
+40_2HZ000.csv        | 2.00            | 3.00            | 0.1606         
+40_3HZ000.csv        | 3.00            | 4.00            | 0.0814         
+40_4HZ000.csv        | 4.00            | 2.00            | 0.0698         
+40_5HZ000.csv        | 5.00            | 3.00            | 0.0543         
+
+--- Sensor Evaluation Results: 50-20 ---
+File                 | Test Freq (Hz)  | Resonance (Hz)  | Sensitivity    
+----------------------------------------------------------------------
+50-2HZ000.csv        | 2.00            | 3.00            | 0.0667         
+50-3HZ000.csv        | 3.00            | 4.00            | 0.0876         
+50-4HZ000.csv        | 4.00            | 2.00            | 0.0296         
+50-5HZ000.csv        | 5.00            | 2.00            | 0.1315         
+
+--- Sensor Evaluation Results: 60-20 ---
+File                 | Test Freq (Hz)  | Resonance (Hz)  | Sensitivity    
+----------------------------------------------------------------------
+60_2HZ   000.csv     | 2.00            | 2.50            | 0.0636         
+60_3HZ   000.csv     | 3.00            | 7.00            | 0.0649         
+60_4HZ   000.csv     | 4.00            | 10.50           | 0.0408         
+60_5HZ   000.csv     | 5.00            | 11.00           | 0.0244         
+
+--- Sensor Evaluation Results: 70-20 ---
+File                 | Test Freq (Hz)  | Resonance (Hz)  | Sensitivity    
+----------------------------------------------------------------------
+70_2HZ   000.csv     | 2.00            | 9.00            | 0.0134         
+70_3HZ   000.csv     | 3.00            | 4.00            | 0.0836         
+70_4HZ   000.csv     | 4.00            | 9.50            | 0.0885         
+70_5HZ   000.csv     | 5.00            | 9.00            | 0.0548         
+----------------------------------------------------------------------
+Terminal output mirrored and saved to: 'Performance-Results/Sensor_Evaluation_Report.txt'
+Overlap plots and Flatness graph saved to the 'Performance-Results' folder.

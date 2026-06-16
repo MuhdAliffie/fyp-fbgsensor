@@ -1,0 +1,25 @@
+
+=========================================================
+         DIGITAL TWIN SIMULATION SUMMARY REPORT
+=========================================================
+1. INPUT PARAMETERS:
+   - Structural Sway Frequency : 3.0 Hz
+   - Peak Input Acceleration   : 2.7329 g
+   - System Calibration Factor : 0.0673 V/pm
+---------------------------------------------------------
+2. SENSOR PERFORMANCE: 40 mm CANTILEVER BEAM
+   - Flat-Band Sensitivity     : 0.2689 pm/g
+   - Maximum Optical Shift     : 0.7349 pm
+   - Maximum Output Voltage    : 0.0495 V (49.5 mV)
+---------------------------------------------------------
+3. SENSOR PERFORMANCE: 60 mm CANTILEVER BEAM
+   - Flat-Band Sensitivity     : 0.2957 pm/g
+   - Maximum Optical Shift     : 0.8081 pm
+   - Maximum Output Voltage    : 0.0544 V (54.4 mV)
+=========================================================
+CONCLUSION:
+Both the 40 mm and 60 mm configurations successfully 
+yield AC electrical responses between ~45 mV and ~50 mV 
+under a 2.5 g load. This voltage magnitude confirms 
+feasibility for real-time commercial DAQ monitoring.
+=========================================================
